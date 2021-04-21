@@ -18,14 +18,20 @@
         android:padding="20dp">
 
         <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Status"
+            android:paddingBottom="5dp"/>
+
+        <TextView
             android:id="@+id/fileName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_weight="4"
             android:text="file"
-            android:textColor="#FFFAFA"
-            android:textSize="15dp"
-            tools:layout_editor_absoluteX="219dp"
-            tools:layout_editor_absoluteY="438dp" />
+            android:textColor="#FFFAFA" />
 
         <ProgressBar
             android:id="@+id/recyclerProgressBar"

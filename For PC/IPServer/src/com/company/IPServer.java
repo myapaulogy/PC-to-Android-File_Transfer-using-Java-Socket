@@ -1,121 +1,181 @@
 package com.company;
 
 import java.io.File;
+import java.sql.SQLOutput;
 import java.util.ArrayList; //192.168.1.73
 
 public class IPServer {
     public static ServerSocketManager ssm;
-    private static ArrayList<String> files;
     static String currentWorkingDir;
     private static int heapSpace = 1000; //1gb
+    private static boolean quite = true;
     /**
-    * Communication Structure To Client:
-    * Loop Server:
-    *   Loop Dir:
-    *       send: "dir"
-    *       Send: boolean
-    *       Send: FileName
-    *   loop Get CLIENT data:
-    *       Get: boolean
-    *       Get: index
-    *       if "dir":
-    *           Loop Dir
-    *       if "fil":
-    *           send: "fil"
-    *           Send: boolean
-    *           Send: file
-    *
-    *       SEND    1. dir or fil
-    *               2. boolean
-    *               3. type
+     *
+     *
+     * Communication Structure:
+     *
+     * Wait for Connection:
+     *  Loop:
+     *      Wait for Boolean:
+     *      True Continue <--> False Close connection
+     *          Get user input (Directory or File)
+     *          Get user input (index)
+     *              Send Dir or Fil
+     *
+     * How Send File:
+     *  Send File Size
+     *  Loop:
+     *      Send boolean TRUE
+     *      Get boolean
+     *      True Continue <--> False Stop
+     *      Send sending size
+     *      Send byte data
+     *  Send boolean False
+     *
+     * How Send Directory:
+     *  Send How many objects are in Dir
+     *  Loop:
+     *      Send boolean TRUE
+     *      Get boolean
+     *      True Continue <--> False Stop
+     *      Send size
+     *      Send File or Send Directory
+     *      Send String
+     *  Send boolean False
+     *
+     *
      * */
 
+    // Open connection
+    // LOOP: Boolean <-
+    //      String <-
+    //      Int <-
     public static void main(String[] args) {
+        System.out.println("\n");
         //Set up connection
-
         if (args.length > 0) {
             heapSpace = Integer.parseInt(args[0]);
+            if(args.length > 1 && args[1].equals("--quite")) {
+                System.out.println("I'll be quite... For the most part\n\n");
+                quite = false;
+            }
+
         }
 
-        ssm = new ServerSocketManager(6969, heapSpace);
+        ssm = new ServerSocketManager(6969, heapSpace, quite);
 
-        while (true) {
+        boolean shutdown = false;
+        while (!shutdown) {
             currentWorkingDir = System.getProperty("user.dir");
 
-	    //wait for connection
+	        //wait for connection
             ssm.openConnection();
-            //send dir to Client
-            SendDirectory("");
 
-            //Get next
-            while (true) {
-                if (ssm.readBoolean()) {
-                    int filePos = ssm.readInt();
-                    /* Go into Dir */
-                    File file = new File(currentWorkingDir + "/" + files.get(filePos));
+            toSystemConsole("Accepting HandShake (Boolean, String, Int)");
+            while(true) {
+                if(ssm.readBoolean()) {
+                    String clientInput = ssm.readString();
+                    int index = ssm.readInt();
+                    toSystemConsole("User asks for: " + clientInput);
+                    toSystemConsole("At index: " + index);
+                    if (clientInput.equals("Directory")) {
 
-                    if (file.isDirectory()) {
-                        /* Send "dir" */
-                        System.out.println("Sending  DIR ---> " + files.get(filePos));
-                        SendDirectory(files.get(filePos));
+                        if (index == -1) {
+                            SendDirectory(currentWorkingDir);
+                        } else {
+                            currentWorkingDir = currentWorkingDir + "/" + files.get(index).filename;
+                            SendDirectory(currentWorkingDir);
+                        }
+
+                    } else if (clientInput.equals("File")) {
+                        if (index < files.size()){
+                            SendFile(currentWorkingDir + "/" + files.get(index).filename);
+                        } else {
+                            toSystemConsole("User Requested");
+                        }
+
+                    } else if (clientInput.equals("ShutDown")) {
+                        System.out.println("Client Requested to ShutDown Server");
+                        shutdown = true;
                     } else {
-                        /* Send "fil" */
-                        System.out.println("Sending FIL ---> " + files.get(filePos));
-                        ssm.send(3, "fil");
-                        ssm.send((int) file.length(), file);
-                        //SendDirectory("");
+                        System.out.println("Unknown request -> " + clientInput + " <- ");
+                        System.out.println("Closing Connection");
+                        ssm.close();
                     }
-
                 } else {
+                    System.out.println("\nConnection Closed -/-");
                     break;
                 }
             }
+
         }
+        ssm.close();
+        System.out.println("Connection is closed");
+    }
+
+    public static void toSystemConsole(String str){
+        if(quite)
+            System.out.println(str);
     }
 
     public static boolean isRoot(String path){ return new File(path).toPath().getNameCount() == 0; }
 
-    public static void SendDirectory(String fname){
+    // int ->
+    // LOOP:
+    //      String ->
+    //      String ->
+    private static ArrayList<FileData> files;
+    public static void SendDirectory(String path){
+        toSystemConsole("Current Working Directory --> " + path);
         files = new ArrayList<>();
-        files.add("..");
+        files.add(new FileData( "..", false));
 
-        currentWorkingDir = currentWorkingDir +"/"+ fname;
-
-
-
-        /* //fix? dont append \..
-
-
-        //Dont want to send root dir if at root
-        //Makes this pointless
-        if (isRoot(currentWorkingDir)) {
-            return;
-        }
-        */
 
         //get file in new dir
-        File f = new File(currentWorkingDir);
+        File f = new File(path);
         String[] pathNames;
         pathNames = f.list();
 
         //Fill array with files
-        for (String pathname : pathNames) {
-            System.out.println("Storing Files ---> "+pathname);
-            files.add(pathname);
+        File dirOrFil;
+        if(pathNames != null) {
+            for (String pathName : pathNames) {
+                dirOrFil = new File(path + "/" + pathName);
+                files.add(new FileData(pathName, dirOrFil.isFile()));
+            }
+
+            ssm.send(files.size());
+            toSystemConsole("SIZE ----------->> " + files.size());
+            for (int i = 0; i < files.size(); i++) {
+                ssm.send(files.get(i).isFile());
+                ssm.send(files.get(i).getFilename());
+            }
+
+        } else {
+            toSystemConsole("NOT SENDING AS DIR " + path);
+        }
+    }
+
+    // bytes ->
+    public static boolean SendFile(String filePath){
+        File file = new File(filePath);
+        return ssm.send(file);
+    }
+
+    public static class FileData {
+        private final String filename;
+        private final String type;
+
+        public FileData(String filename, boolean isFile){
+            this.filename = filename;
+            if(isFile){
+                type = "File";
+            } else {
+                type = "Directory";
+            }
         }
 
-        /* Send Client to get ready for Dir */
-        ssm.send(3,"dir");
-
-        //send files to client
-        for (String title : files){
-
-	    //remove Special chars
-	    title = title.replaceAll("[^a-zA-Z0-9-_\\]\\[?><!@#$%^&*()+=`~{}| .]", "");
-
-            ssm.send(true);
-	    ssm.send(title.length(), title);
-        }
-        ssm.send(false);
+        public String getFilename(){ return filename; }
+        public String isFile(){ return type; }
     }
 }

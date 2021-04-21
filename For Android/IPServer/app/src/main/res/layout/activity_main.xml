@@ -58,7 +58,9 @@
             android:id="@+id/progressBar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"/>
 
         <LinearLayout
             android:id="@+id/linearLayout"
@@ -83,6 +85,15 @@
                 android:layout_margin="5dp"
                 android:backgroundTint="#ED9797"
                 android:text="Disconnect" />
+
+            <Button
+                android:id="@+id/stop"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="0dp"
+                android:backgroundTint="#ED9797"
+                android:text="stop" />
+
 
         </LinearLayout>
     </LinearLayout>

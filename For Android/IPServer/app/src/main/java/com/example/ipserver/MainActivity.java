@@ -16,7 +16,6 @@ import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.view.View;
-import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
@@ -24,28 +23,29 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.sql.SQLOutput;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     static byte[] fileContentBytes;
-    ClientSocketManager CSM;
     private static final int CREATE_FILE = 101;
     public static ExecutorService executorService;
-    private static int filePosition = -1;
 
-    Button connect, disconnect, sync;
+    private static int fileIndex = -1;
+
+    Button connect, disconnect, sync, stop;
     EditText EditTextIpAddress, EditTextPort;
     ProgressBar progressBar;
 
+    private ClientSocketManager csm;
     static RecyclerViewAdapter adapter;
-    static ArrayList<FileDataStructure> serverMedia;
-    static ArrayList<FileDataStructure> localMedia;
+    static ArrayList<FileDataStructure> serverMedia, localMedia;
     static RecyclerView recyclerView;
 
-    boolean SYNCFLAG;
+    private boolean SYNCFLAG;
+    private boolean userAskToDisconnect;
+    public static boolean STOP;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,33 +56,27 @@ public class MainActivity extends AppCompatActivity {
         EditTextIpAddress = findViewById(R.id.ipAddress);
         EditTextPort = findViewById(R.id.port);
 
-        //create thread to connect
-        executorService = Executors.newFixedThreadPool(2);
         connect = findViewById(R.id.connect);
-
         connect.setOnClickListener(v -> {
+            //create thread to connect
+            executorService = Executors.newFixedThreadPool(2);
 
+            userAskToDisconnect = false;
             String address = EditTextIpAddress.getText().toString();
             int port = Integer.parseInt(EditTextPort.getText().toString());
-
             executorService.execute(new ClientPi(address, port, getApplicationContext()));
-
             ConnectedGUI();
         });
 
         disconnect = findViewById(R.id.disconnect);
         disconnect.setOnClickListener(v -> {
-            if(CSM != null) {
-                CSM.close();
-            }
-
+            userAskToDisconnect = true;
+            executorService.shutdown();
             DisconnectedGUI();
         });
 
         sync = findViewById(R.id.sync);
         sync.setOnClickListener(v -> {
-            // Toast.makeText(this, "NOT IMPLEMENTED", Toast.LENGTH_SHORT).show();
-
             //Get Local Storage MEDIA
             localMedia.clear();
             Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
@@ -94,19 +88,27 @@ public class MainActivity extends AppCompatActivity {
                         String name = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DISPLAY_NAME));
                         //String artist = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST));
                         //String url = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA));
-                        localMedia.add(new FileDataStructure(name));
+                        localMedia.add(new FileDataStructure(name, "File"));
                     } while (cursor.moveToNext());
                 }
                 cursor.close();
             }
-
-            executorService.execute(new SYNC(serverMedia, localMedia));
+            if(!executorService.isShutdown()) {
+                executorService.execute(new SYNC(serverMedia, localMedia));
+            } else
+                Toast.makeText(this,"Something Went Wrong", Toast.LENGTH_SHORT).show();
         });
 
         progressBar = findViewById(R.id.progressBar);
         progressBar.setVisibility(View.INVISIBLE);
 
         DisconnectedGUI();
+
+        stop = findViewById(R.id.stop);
+        stop.setOnClickListener(v -> {
+            STOP = true;
+        });
+        stop.setEnabled(false);
     }
 
     /**
@@ -139,7 +141,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void DownloadInProgressGUI(){
-        //Enable:   Progress Bar
+        //Enable:   Progress Bar, Stop
+        stop.setEnabled(true);
+        STOP = false; //reset
         progressBar.setVisibility(View.VISIBLE);
 
         //Disable:  RecyclerView, Sync, Disconnect
@@ -154,17 +158,21 @@ public class MainActivity extends AppCompatActivity {
         sync.setEnabled(true);
         disconnect.setEnabled(true);
 
-        //Disable:  Progress Bar
+        //Disable:  Progress Bar, Stop
         progressBar.setVisibility(View.INVISIBLE);
+        stop.setEnabled(false);
     }
 
-    public static void progress(int max, int progress){
-        serverMedia.get(filePosition).EnableProgress(true);
-        serverMedia.get(filePosition).setMaxProgress(max);
-        serverMedia.get(filePosition).setProgress(progress);
+    //More for ClientSocketManager
+    public static void progress(int max, int progress, String status){
+        serverMedia.get(fileIndex).EnableProgress(true);
+        serverMedia.get(fileIndex).setMaxProgress(max);
+        serverMedia.get(fileIndex).setProgress(progress);
+        serverMedia.get(fileIndex).setSyncStatus(status);
         try {
-            adapter.notifyItemChanged(filePosition);
-        } catch (java.lang.IllegalStateException e){
+            adapter.notifyItemChanged(fileIndex);
+        } catch (java.lang.IllegalStateException e) {
+            //e.printStackTrace();
             System.out.println("Recycler View Cannot keep up");
         }
     }
@@ -173,6 +181,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        userAskToDisconnect = true;
+        if(executorService.isShutdown())
+            executorService.shutdown();
     }
 
     public class SYNC implements Runnable{
@@ -189,25 +200,50 @@ public class MainActivity extends AppCompatActivity {
 
         private Object[] MissingFiles(){
             ArrayList<Integer> filesToGet = new ArrayList<>();
-            //Compair server files and local music files
-            //Looper.prepare();
-            for(int i = 1; i < SERVER.size(); i++){
-                int j;
+            try {
+                for(int i = 1; i < SERVER.size(); i++){
+                    //System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<---- FILE NAME: " + SERVER.get(i).getFileName());
+                    //System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<---- FILE NAME: " + SERVER.get(i).getMimeTypeMap());
+                    String filename = SERVER.get(i).getFileName();
+                    String fileType = SERVER.get(i).getType();
+                    if(fileType.equals("Directory")) {
+                        SERVER.get(i).setSyncStatus("Directory: /"+filename);
+                        SERVER.get(i).EnableProgress(false);
+                        adapter.notifyItemChanged(i);
+                        continue;
+                    }
 
-                for (j = 0; j < LOCAL.size(); j++){
-                    //System.out.println("-----------SERVER------------>>>>>>>> "+ SERVER.get(i));
-                    //System.out.println("-----------LOCAL------------->>>>>>>> "+ LOCAL.get(j));
-                    if ( SERVER.get(i).getFileName().equals(LOCAL.get(j).getFileName()) ) {
-                        System.out.println("TRUEE");
-                        LOCAL.remove(j);
-                        break;
+                    String Mime = SERVER.get(i).getMimeTypeMap();
+                    if( Mime == null || !Mime.split("/")[0].equals("audio") ) {
+                        if(Mime == null)
+                            SERVER.get(i).setSyncStatus("Unknown File Extension");
+                        else
+                            SERVER.get(i).setSyncStatus("File Type: " + Mime + " (NOT audio/...)");
+
+
+                        SERVER.get(i).EnableProgress(false);
+                        adapter.notifyItemChanged(i);
+                        continue;
+                    }
+
+                    boolean getFile = true;
+                    for (int j = 0; j < LOCAL.size(); j++){
+                        //Short Circuit Eval
+                        if ( filename.equals(LOCAL.get(j).getFileName()) ) {
+                            LOCAL.remove(j);
+                            SERVER.get(i).setSyncStatus("Already Downloaded <-");
+                            SERVER.get(i).EnableProgress(false);
+                            adapter.notifyItemChanged(i);
+                            getFile = false;
+                            break;
+                        }
+                    }
+                    if (getFile) {
+                        filesToGet.add(i);
                     }
                 }
-
-                if (j == LOCAL.size()) {
-                    System.out.println("---------ADDDDDDDD------->>>>>>>> " + SERVER.get(i));
-                    filesToGet.add(i);
-                }
+            } catch (java.lang.IllegalStateException e) {
+                System.out.println("Recycler View Cannot keep up");
             }
             return filesToGet.toArray();
         }
@@ -218,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
                 Looper.prepare();
 
             if(files.length == 0) {
-                Toast.makeText(MainActivity.this, "Music is up-to-date", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Music: UP-TO-DATE", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -226,14 +262,11 @@ public class MainActivity extends AppCompatActivity {
 
             progressBar.setProgress(0);
             for (Object file : files) {
-                //SET fileposition so ClientPi thread can DOWNLOAD MUSIC
-                //WAIT UNTIL CLientPI THREAD IS DONE DOWNLOADING FILE
-                while (filePosition != -1);
+                if(STOP)
+                    break;
                 SYNCFLAG = true;
-                filePosition = (int) file;
-
-                //Update GUI After Download
-                while (filePosition != -1);
+                while (fileIndex != -1);
+                fileIndex = (int) file;
                 progressBar.setProgress(progressBar.getProgress() + 1, true);
             }
 
@@ -266,56 +299,99 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void run() {
+            if (Looper.myLooper() == null)
+                Looper.prepare();
             //check if connected
-            CSM = new ClientSocketManager(address, port, context);
-
-            if( !CSM.hasConnection() ){
-                if (Looper.myLooper() == null)
-                    Looper.prepare();
-                Toast.makeText(MainActivity.this, "Failed to Connect", Toast.LENGTH_SHORT).show();
-                connect.setEnabled(true);
+            try {
+                csm = new ClientSocketManager(address, port, context);
+            } catch (IOException e){
+                Toast.makeText(MainActivity.this, "Error On Creating a connection", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            //Throw away "dir" for Start up
-            CSM.readData(false);
-            RetrieveDir();
+            if( !csm.hasConnection() ){
+                Toast.makeText(MainActivity.this, "Failed to Connect", Toast.LENGTH_SHORT).show();
+                runOnUiThread(MainActivity.this::DisconnectedGUI);
+                return;
+            }
 
-            String control;
-            //Send files wanted
-            while( ! CSM.clientSocket.isClosed()) {
-                //User clicked a file or Sync requested a file
-                if(filePosition >= 0) {
-                    runOnUiThread(MainActivity.this::DownloadInProgressGUI);
-
-                    CSM.send(0, filePosition);
-                    control = (String)CSM.readData(false);
-                    //Check if dir or fil
-                    if(control == null){
-                        if (Looper.myLooper() == null)
-                            Looper.prepare();
-                        Toast.makeText(getApplicationContext(),"Server Might Be Down", Toast.LENGTH_SHORT).show();
-                        runOnUiThread(MainActivity.this::DisconnectedGUI);
-                        break;
+            try {
+                //StartUP
+                csm.send(true);
+                csm.send("Directory");
+                csm.send(-1);
+                RetrieveDir();
+            } catch (IOException e){
+                Toast.makeText(MainActivity.this, "Failed On StartUP", Toast.LENGTH_SHORT).show();
+                e.printStackTrace();
+                return;
+            }
+            try {
+                while (!userAskToDisconnect) {
+                    if (fileIndex >= 0) {
+                        //System.out.println("Asking for file " + fileIndex);
+                        String type = serverMedia.get(fileIndex).getType();
+                        csm.send(true);
+                        csm.send(type);
+                        csm.send(fileIndex);
+                        if (type.equals("File")) {
+                            if (serverMedia.get(fileIndex).getMimeTypeMap() != null) {
+                                runOnUiThread(MainActivity.this::DownloadInProgressGUI);
+                                RetrieveFile();
+                                runOnUiThread(MainActivity.this::DownloadComplete);
+                            } else {
+                                Toast.makeText(MainActivity.this, "Unknown File Type", Toast.LENGTH_SHORT).show();
+                            }
+                        } else if (type.equals("Directory")) {
+                            RetrieveDir();
+                        }
+                        fileIndex = -1;
                     }
-                    if (control.equals("dir")) {
-                        RetrieveDir();
-                    } else if (control.equals("fil")){
-                        RetrieveFile();
-                    }
-                    filePosition = -1;
-
-                    runOnUiThread(MainActivity.this::DownloadComplete);
                 }
+            } catch (IOException e) {
+                runOnUiThread(MainActivity.this::DisconnectedGUI);
+                Toast.makeText(MainActivity.this, "Failed: Sending/Receiving", Toast.LENGTH_SHORT).show();
+                e.printStackTrace();
+                return;
+            }
+            try {
+                csm.send(false);
+                csm.close();
+                System.out.println("DISCONNECTED");
+            } catch (IOException e){
+                runOnUiThread(MainActivity.this::DisconnectedGUI);
+                Toast.makeText(MainActivity.this, "Failed: Disconnecting", Toast.LENGTH_SHORT).show();
+                e.printStackTrace();
             }
         }
 
+        // int <-
+        // LOOP:
+        //      String <-
+        //      String <-
         public void RetrieveDir(){
-            //get new file list
-            serverMedia = new ArrayList<>();
-            while (CSM.readBoolean()) {
-                serverMedia.add(new FileDataStructure((String) CSM.readData(false)));
+            runOnUiThread(MainActivity.this::DownloadInProgressGUI);
+
+            try {
+                int totalFiles = csm.readInt();
+
+
+                progressBar.setMax(totalFiles);
+                progressBar.setProgress(0);
+                serverMedia = new ArrayList<>();
+
+                for (int i = 0; i < totalFiles; i++) {
+                    String type = csm.readUTF();
+                    String name = csm.readUTF();
+                    serverMedia.add(new FileDataStructure(name, type));
+                    runOnUiThread(() -> progressBar.setProgress(progressBar.getProgress() + 1));
+                }
+            } catch (IOException e){
+                Toast.makeText(MainActivity.this, "Error: Retrieve Directories", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            runOnUiThread(MainActivity.this::DownloadComplete);
 
             //update UI
             runOnUiThread(() -> {
@@ -326,49 +402,29 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // bytes <-
         public void RetrieveFile(){
-            if(!SYNCFLAG)
-                runOnUiThread(MainActivity.this::DownloadInProgressGUI);
-
             //Download File
-            runOnUiThread(() -> recyclerView.scrollToPosition(filePosition));
-            Object check = CSM.readData(true);
-            if (check != null)
-                fileContentBytes = (byte[])check;
-            else
-                Toast.makeText(context,"Error when retrieving File", Toast.LENGTH_SHORT).show();
-
-            sendFileToSharedStorage(serverMedia.get(filePosition).toString(), SYNCFLAG);
-
-            if(!SYNCFLAG)
-                runOnUiThread(MainActivity.this::DownloadComplete);
-
+            runOnUiThread(() -> recyclerView.scrollToPosition(fileIndex));
+            fileContentBytes = csm.readFile();
+            String name = serverMedia.get(fileIndex).getFileName();
+            if (fileContentBytes != null) {
+                sendFileToSharedStorage(name, SYNCFLAG);
+            } else {
+                Toast.makeText(context, "Didn't Downloaded: " + name, Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
-    /** Get RecyclerOnClick index */
-    public static void setFilePosition(int FP){
-        filePosition = FP;
-    }
+    public static void setFileIndex(int FP){ fileIndex = FP; }
+    public static int getFileIndex(){ return fileIndex; }
+
 
     /** create text file */
     public void sendFileToSharedStorage(String title, boolean syncRequest) {
 
-        // Create a file with the requested Mime type
-        String[] str = title.split("\\.");
-        //System.out.println("------->> "+str[str.length-1]);
-        String fileExtension = fileType(str[str.length - 1]);
-
         if (syncRequest) {
             /* DOWNLOAD TO SHARED AUDIO FILE */
-
-            //System.out.println(fileExtension);
-            if( fileExtension == null || !fileExtension.split("/")[0].equals("audio") ) {
-                System.out.println("NOT DOWNLAOINDG");
-                return;
-            }
-
-            System.out.println("-------------->> "+fileExtension.split("/")[0]);
 
             // Add a specific media item.
             ContentResolver resolver = getApplicationContext().getContentResolver();
@@ -382,17 +438,19 @@ public class MainActivity extends AppCompatActivity {
 
             // Keeps a handle to the new song's URI in case we need to modify it
             // later.
-            Uri uri = resolver.insert(audioCollection, newSongDetails);
-
-            //Uri uri = Uri.parse(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI + "/" + title);
             try {
+                Uri uri = resolver.insert(audioCollection, newSongDetails);
                 OutputStream outputStream = getContentResolver().openOutputStream(uri, "w");
                 outputStream.write(fileContentBytes);
                 outputStream.close();
+
+            } catch (IllegalArgumentException e) {
+                serverMedia.get(fileIndex).setSyncStatus("Error Type: " + serverMedia.get(fileIndex).getMimeTypeMap());
+                serverMedia.get(fileIndex).EnableProgress(false);
+                Toast.makeText(MainActivity.this, "Error: (MIME Type) " + title, Toast.LENGTH_SHORT).show();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
             SYNCFLAG = false;
         } else {
             /* Allow User to pick Location */
@@ -403,13 +461,7 @@ public class MainActivity extends AppCompatActivity {
             // filter to only show openable items.
             intent.addCategory(Intent.CATEGORY_OPENABLE);
 
-            if(fileExtension == null) {
-                if (Looper.myLooper() == null)
-                    Looper.prepare();
-                Toast.makeText(getApplicationContext(), "Unknown File Extension", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            intent.setType(fileExtension);
+            intent.setType(serverMedia.get(fileIndex).getMimeTypeMap());
             intent.putExtra(Intent.EXTRA_TITLE, title);
             intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, MediaStore.Audio.Media.INTERNAL_CONTENT_URI);
 
@@ -417,10 +469,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public String fileType(String extension){
-        MimeTypeMap mimeTypeMap = MimeTypeMap.getSingleton();
-        return mimeTypeMap.getMimeTypeFromExtension(extension);
-    }
+
 
     /** Write to location */
     @Override

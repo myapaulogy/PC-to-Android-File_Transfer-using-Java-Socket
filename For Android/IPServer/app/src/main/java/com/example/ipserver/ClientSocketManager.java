@@ -4,11 +4,14 @@ import android.content.Context;
 import android.os.Looper;
 import android.widget.Toast;
 
+import androidx.annotation.UiThread;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.net.Socket;
 
 public class ClientSocketManager {
@@ -22,111 +25,80 @@ public class ClientSocketManager {
 
     public static boolean connectionFlag = false;
 
-    ClientSocketManager(String address, int port, Context context){
+    ClientSocketManager (String address, int port, Context context) throws IOException {
         this.port = port;
         this.address = address;
         this.context = context;
-        try {
-            clientSocket = new Socket(address, port);
-            dataInputStream = new DataInputStream(clientSocket.getInputStream());
-            dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
-            connectionFlag = true;
-        } catch (java.io.IOException e){ e.printStackTrace(); }
+        clientSocket = new Socket(address, port);
+        dataInputStream = new DataInputStream(clientSocket.getInputStream());
+        dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+        connectionFlag = true;
     }
 
     public boolean hasConnection(){
         return connectionFlag;
     }
 
-    public void send(int dataSize, Object b){
-        byte[] byteData = new byte[dataSize];
+    // Long ->
+    public void send(long l) throws IOException { dataOutputStream.writeLong(l); }
 
-        if (!clientSocket.isClosed()) {
-            try {
-                if (b instanceof java.io.File) {
-                    //System.out.println("Packaging Type ---> (file)");
-                    byteData = convertFile((File) b, dataSize);
+    // Int ->
+    public void send(int i) throws IOException { dataOutputStream.writeInt(i); }
 
-                } else if (b instanceof String) {
-                    //System.out.println("Packaging Type --> (String)");
-                    byteData = convertString((String) b);
+    // String ->
+    public void send(String s) throws IOException { dataOutputStream.writeUTF(s); }
 
-                } else if (b instanceof Integer){
-                    //System.out.println("Packaging Type --> (Int)");
-                    send(true);
-                    dataOutputStream.writeInt((int)b);
-                    return;
-                }
+    // Boolean ->
+    public void send(boolean b) throws IOException { dataOutputStream.writeBoolean(b); }
 
-                //System.out.println("Sending Data To --> client");
-                dataOutputStream.writeInt(dataSize);
-                dataOutputStream.write(byteData);
-                dataOutputStream.flush();
-            } catch (java.io.IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public void send(boolean b){
-        try{
-            dataOutputStream.writeBoolean(b);
-        } catch (java.io.IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public byte[] convertFile(File f, int size) throws IOException {
-        byte[] fileBytes = new byte[size];
+    //File to bytes
+    public byte[] convertFile(File f, long size) throws IOException {
+        byte[] fileBytes = new byte[(int) size];
         FileInputStream fileInputStream = new FileInputStream(f.getAbsoluteFile());
         fileInputStream.read(fileBytes);
         return fileBytes;
     }
 
-    public byte[] convertString(String s){ return s.getBytes(); }
-
-    boolean isFile;
-    public Object readData(boolean isFile){
-        this.isFile = isFile;
-        byte[] serverData;
+    // long <-
+    // LOOP:
+    //  Boolean <-
+    //  Boolean ->
+    //  int <-
+    //  bytes <-
+    public byte[] readFile() {
+        byte[] rawFile;
         try {
-            //Receive Total size
-            //Loop
-                //Receive page Size
-                //Receive data
+            int dataLength = (int)dataInputStream.readLong();
+            rawFile = new byte[dataLength];
 
-            int dataLength = dataInputStream.readInt();
-            serverData = new byte[dataLength];
-
-            //NEWWWW PROTOCOL
-
-            //MainActivity.adapter.getItemViewType(0)
-            if(isFile)
-                MainActivity.progress(dataLength, 0);
-
+            MainActivity.progress(dataLength, 0, "Loading");
+            boolean stop = false;
             int pageSize;
             int offset = 0;
             do{
-                pageSize = dataInputStream.readInt();
-                //System.out.println("-------------->> "+ offset);
-                //System.out.println("-------------->> "+ pageSize);
-                dataInputStream.readFully(serverData, offset, pageSize);
-                offset += pageSize;
+                if (readBoolean()){
+                    stop = MainActivity.STOP;
+                    send(!stop);
+                    if(stop)
+                        break;
 
-                if(isFile)
-                    MainActivity.progress(dataLength, offset);
-                //System.out.println("-------------->>> " + pageSize + " <<<---------------");
+                    pageSize = dataInputStream.readInt();
+                    dataInputStream.readFully(rawFile, offset, pageSize);
+                    offset += pageSize;
+                } else {
+                    rawFile = null;
+                }
+
+                int percentage = (int)(((double)offset/dataLength)*100);
+                MainActivity.progress(dataLength, offset, "Downloading: " + percentage +"%");
             }while(dataLength != offset);
 
-            //NEWWWW PROTOCOL
-
-
-            //dataInputStream.readFully(serverData, 0, dataLength);
-            if (isFile) {
-                return serverData;
-            } else if (serverData != null){
-                //System.out.println(new String(serverData));
-                return new String(serverData);
+            if (stop) {
+                MainActivity.progress(dataLength, offset, "Stopped <-/-");
+                return null;
+            } else {
+                MainActivity.progress(dataLength, offset, "Downloaded <-");
+                return rawFile;
             }
 
         } catch (java.io.IOException e){
@@ -143,22 +115,22 @@ public class ClientSocketManager {
                 Looper.prepare();
 
             Toast.makeText(context, "Server Might Be down", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
+
         return null;
     }
 
-    public boolean readBoolean() {
-        boolean b = false;
-        try { b = dataInputStream.readBoolean(); } catch (java.io.IOException e){ e.printStackTrace(); }
-        return b;
-    }
+    public boolean readBoolean() throws IOException { return dataInputStream.readBoolean(); }
 
-    public void close(){
-        try {
+    public String readUTF() throws IOException { return dataInputStream.readUTF(); }
+
+    public int readInt() throws IOException { return dataInputStream.readInt(); }
+
+    public void close() throws IOException {
             clientSocket.close();
             dataInputStream.close();
             dataOutputStream.close();
             connectionFlag = false;
-        } catch (java.io.IOException e){ e.printStackTrace(); }
     }
 }
