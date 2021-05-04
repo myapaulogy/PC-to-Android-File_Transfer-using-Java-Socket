@@ -55,7 +55,7 @@ public class IPServer {
         //Set up connection
         if (args.length > 0) {
             heapSpace = Integer.parseInt(args[0]);
-            if(args.length > 1 && args[1].equals("--quite")) {
+            if(args.length > 1 && args[1].equals("--quiet")) {
                 System.out.println("I'll be quite... For the most part\n\n");
                 quite = false;
             }
@@ -78,29 +78,32 @@ public class IPServer {
                     int index = ssm.readInt();
                     toSystemConsole("User asks for: " + clientInput);
                     toSystemConsole("At index: " + index);
-                    if (clientInput.equals("Directory")) {
-
-                        if (index == -1) {
+                    switch (clientInput) {
+                        case "Directory":
+                            if (index != -1) {
+                                currentWorkingDir = currentWorkingDir + "/" + files.get(index).filename;
+                            }
                             SendDirectory(currentWorkingDir);
-                        } else {
-                            currentWorkingDir = currentWorkingDir + "/" + files.get(index).filename;
-                            SendDirectory(currentWorkingDir);
-                        }
+                            break;
 
-                    } else if (clientInput.equals("File")) {
-                        if (index < files.size()){
-                            SendFile(currentWorkingDir + "/" + files.get(index).filename);
-                        } else {
-                            toSystemConsole("User Requested");
-                        }
+                        case "File":
+                            if (index < files.size()) {
+                                SendFile(currentWorkingDir + "/" + files.get(index).filename);
+                            } else {
+                                toSystemConsole("User Requested");
+                            }
+                            break;
 
-                    } else if (clientInput.equals("ShutDown")) {
-                        System.out.println("Client Requested to ShutDown Server");
-                        shutdown = true;
-                    } else {
-                        System.out.println("Unknown request -> " + clientInput + " <- ");
-                        System.out.println("Closing Connection");
-                        ssm.close();
+                        case "ShutDown":
+                            System.out.println("Client Requested to ShutDown Server");
+                            shutdown = true;
+                            break;
+
+                        default:
+                            System.out.println("Unknown request -> " + clientInput + " <- ");
+                            System.out.println("Closing Connection");
+                            ssm.close();
+                            break;
                     }
                 } else {
                     System.out.println("\nConnection Closed -/-");
@@ -145,7 +148,6 @@ public class IPServer {
             }
 
             ssm.send(files.size());
-            toSystemConsole("SIZE ----------->> " + files.size());
             for (int i = 0; i < files.size(); i++) {
                 ssm.send(files.get(i).isFile());
                 ssm.send(files.get(i).getFilename());

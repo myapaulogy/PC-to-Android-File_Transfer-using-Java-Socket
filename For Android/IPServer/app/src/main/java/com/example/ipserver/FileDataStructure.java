@@ -5,7 +5,7 @@ import android.webkit.MimeTypeMap;
 class FileDataStructure {
     private final String fileName;
     private final String type;
-    private String mimeTypeMap;
+    private String mimeTypeMap = null;
     private String syncStatus;
     private boolean enableProgress;
     private int maxProgress = 0, progress = 0;

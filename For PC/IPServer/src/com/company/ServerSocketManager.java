@@ -96,6 +96,7 @@ public class ServerSocketManager {
                 while(sendBytes != dataSize) {
                     send(true);
                     if(!readBoolean()) {
+                        toSystemConsole("Client Asked to Stop transfer -/->");
                         success = false;
                         break;
                     }

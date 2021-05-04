@@ -1,5 +1,6 @@
 package com.example.ipserver;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -12,7 +13,9 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.view.View;
@@ -34,7 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static int fileIndex = -1;
 
-    Button connect, disconnect, sync, stop;
+    Button connect, disconnect, sync, stop, goToFirst;
     EditText EditTextIpAddress, EditTextPort;
     ProgressBar progressBar;
 
@@ -46,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean SYNCFLAG;
     private boolean userAskToDisconnect;
     public static boolean STOP;
+    public static Handler setProgressHandler, progressHandler;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,6 +62,9 @@ public class MainActivity extends AppCompatActivity {
 
         connect = findViewById(R.id.connect);
         connect.setOnClickListener(v -> {
+            if(executorService != null)
+                executorService.shutdown();
+
             //create thread to connect
             executorService = Executors.newFixedThreadPool(2);
 
@@ -65,14 +72,12 @@ public class MainActivity extends AppCompatActivity {
             String address = EditTextIpAddress.getText().toString();
             int port = Integer.parseInt(EditTextPort.getText().toString());
             executorService.execute(new ClientPi(address, port, getApplicationContext()));
-            ConnectedGUI();
         });
 
         disconnect = findViewById(R.id.disconnect);
         disconnect.setOnClickListener(v -> {
             userAskToDisconnect = true;
             executorService.shutdown();
-            DisconnectedGUI();
         });
 
         sync = findViewById(R.id.sync);
@@ -109,6 +114,59 @@ public class MainActivity extends AppCompatActivity {
             STOP = true;
         });
         stop.setEnabled(false);
+
+        setProgressHandler = new Handler(Looper.myLooper()){
+
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                serverMedia.get(msg.arg2).EnableProgress(true);
+                serverMedia.get(msg.arg2).setMaxProgress(msg.arg1);
+                serverMedia.get(msg.arg2).setSyncStatus((String) msg.obj);
+
+                try {
+                    adapter.notifyItemChanged(msg.arg2);
+                } catch (java.lang.IllegalStateException e) {
+                    //e.printStackTrace();
+                    System.out.println("Recycler View Cannot keep up");
+                }
+            }
+        };
+
+        progressHandler = new Handler(Looper.myLooper()) {
+            private int currentAdapterView = 0;
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                if(msg.arg1 >= 0 ) {
+                    serverMedia.get(msg.arg2).setProgress(msg.arg1);
+                } else {
+                    serverMedia.get(msg.arg2).EnableProgress(true);
+                }
+                serverMedia.get(msg.arg2).setSyncStatus((String) msg.obj);
+
+                if(msg.arg2 >= currentAdapterView)
+                    currentAdapterView = msg.arg2 + 3;
+                try {
+                    adapter.notifyItemChanged(msg.arg2);
+
+                    if(serverMedia.size() > currentAdapterView) {
+                        recyclerView.scrollToPosition(currentAdapterView);
+                    } else
+                        recyclerView.scrollToPosition(msg.arg2);
+
+                } catch (java.lang.IllegalStateException e) {
+                    //e.printStackTrace();
+                    System.out.println("Recycler View Cannot keep up");
+                }
+            }
+        };
+
+        goToFirst = findViewById(R.id.up);
+        goToFirst.setOnClickListener(v -> {
+            if(recyclerView != null){
+                recyclerView.scrollToPosition(0);
+            }
+        });
+
     }
 
     /**
@@ -138,6 +196,7 @@ public class MainActivity extends AppCompatActivity {
         }
         sync.setEnabled(false);
         disconnect.setEnabled(false);
+        fileIndex = -1;
     }
 
     public void DownloadInProgressGUI(){
@@ -155,6 +214,7 @@ public class MainActivity extends AppCompatActivity {
     public void DownloadComplete(){
         //Enable:   RecyclerView, Sync, Disconnect
         RecyclerViewAdapter.isClickable = true;
+        STOP = false; //reset
         sync.setEnabled(true);
         disconnect.setEnabled(true);
 
@@ -190,6 +250,7 @@ public class MainActivity extends AppCompatActivity {
         private final ArrayList<FileDataStructure> SERVER, LOCAL;
         private final Object[] files;
 
+
         public SYNC(ArrayList<FileDataStructure> server, ArrayList<FileDataStructure> local){
             this.SERVER = server;
             this.LOCAL = local;
@@ -202,8 +263,6 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Integer> filesToGet = new ArrayList<>();
             try {
                 for(int i = 1; i < SERVER.size(); i++){
-                    //System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<---- FILE NAME: " + SERVER.get(i).getFileName());
-                    //System.out.println("<<<<<<<<<<<<<<<<<<<<<<<<<<---- FILE NAME: " + SERVER.get(i).getMimeTypeMap());
                     String filename = SERVER.get(i).getFileName();
                     String fileType = SERVER.get(i).getType();
                     if(fileType.equals("Directory")) {
@@ -262,14 +321,15 @@ public class MainActivity extends AppCompatActivity {
 
             progressBar.setProgress(0);
             for (Object file : files) {
-                if(STOP)
-                    break;
                 SYNCFLAG = true;
                 while (fileIndex != -1);
+                if(STOP)
+                    break;
                 fileIndex = (int) file;
                 progressBar.setProgress(progressBar.getProgress() + 1, true);
             }
 
+            SYNCFLAG = false;
             runOnUiThread(MainActivity.this::DownloadComplete);
 
             Toast.makeText(MainActivity.this, "Sync Complete", Toast.LENGTH_SHORT).show();
@@ -279,18 +339,9 @@ public class MainActivity extends AppCompatActivity {
     //"192.168.1.73", 6969
     public class ClientPi implements Runnable{
 
-        /**
-         * ACCEPT:  1. dir or fil
-         *          2. boolean
-         *          3. data
-         *
-         * SEND:    1. boolean
-         *          2. file index
-         * */
         private final String address;
         private final int port;
         private final Context context;
-
         public ClientPi(String address, int port, Context context){
             this.address = address;
             this.port = port;
@@ -315,6 +366,8 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            runOnUiThread(MainActivity.this::ConnectedGUI);
+
             try {
                 //StartUP
                 csm.send(true);
@@ -331,14 +384,23 @@ public class MainActivity extends AppCompatActivity {
                     if (fileIndex >= 0) {
                         //System.out.println("Asking for file " + fileIndex);
                         String type = serverMedia.get(fileIndex).getType();
+                        if(STOP) {
+                            fileIndex = -1;
+                            continue;
+                        }
                         csm.send(true);
                         csm.send(type);
                         csm.send(fileIndex);
                         if (type.equals("File")) {
                             if (serverMedia.get(fileIndex).getMimeTypeMap() != null) {
-                                runOnUiThread(MainActivity.this::DownloadInProgressGUI);
-                                RetrieveFile();
-                                runOnUiThread(MainActivity.this::DownloadComplete);
+                                if(SYNCFLAG) {
+                                    RetrieveFile();
+                                } else {
+                                    runOnUiThread(MainActivity.this::DownloadInProgressGUI);
+                                    RetrieveFile();
+                                    runOnUiThread(MainActivity.this::DownloadComplete);
+                                }
+
                             } else {
                                 Toast.makeText(MainActivity.this, "Unknown File Type", Toast.LENGTH_SHORT).show();
                             }
@@ -363,6 +425,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Failed: Disconnecting", Toast.LENGTH_SHORT).show();
                 e.printStackTrace();
             }
+            runOnUiThread(MainActivity.this::DisconnectedGUI);
         }
 
         // int <-
@@ -387,6 +450,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> progressBar.setProgress(progressBar.getProgress() + 1));
                 }
             } catch (IOException e){
+                runOnUiThread(MainActivity.this::DisconnectedGUI);
                 Toast.makeText(MainActivity.this, "Error: Retrieve Directories", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -406,7 +470,7 @@ public class MainActivity extends AppCompatActivity {
         public void RetrieveFile(){
             //Download File
             runOnUiThread(() -> recyclerView.scrollToPosition(fileIndex));
-            fileContentBytes = csm.readFile();
+            fileContentBytes = csm.readFile(fileIndex);
             String name = serverMedia.get(fileIndex).getFileName();
             if (fileContentBytes != null) {
                 sendFileToSharedStorage(name, SYNCFLAG);
@@ -421,9 +485,9 @@ public class MainActivity extends AppCompatActivity {
 
 
     /** create text file */
-    public void sendFileToSharedStorage(String title, boolean syncRequest) {
+    public void sendFileToSharedStorage(String title, boolean toMusic) {
 
-        if (syncRequest) {
+        if (toMusic) {
             /* DOWNLOAD TO SHARED AUDIO FILE */
 
             // Add a specific media item.
@@ -438,20 +502,28 @@ public class MainActivity extends AppCompatActivity {
 
             // Keeps a handle to the new song's URI in case we need to modify it
             // later.
+
             try {
                 Uri uri = resolver.insert(audioCollection, newSongDetails);
                 OutputStream outputStream = getContentResolver().openOutputStream(uri, "w");
-                outputStream.write(fileContentBytes);
+                if(STOP){
+                    Toast.makeText(MainActivity.this, "Stopped Downloaded: " + title, Toast.LENGTH_SHORT).show();
+                } else {
+                    outputStream.write(fileContentBytes);
+                }
                 outputStream.close();
 
             } catch (IllegalArgumentException e) {
-                serverMedia.get(fileIndex).setSyncStatus("Error Type: " + serverMedia.get(fileIndex).getMimeTypeMap());
-                serverMedia.get(fileIndex).EnableProgress(false);
+                Message downloading = Message.obtain();
+                downloading.arg1 = -1;
+                downloading.arg2 = fileIndex;
+                downloading.obj = "Error Type: " + serverMedia.get(fileIndex).getMimeTypeMap();
+                progressHandler.sendMessage(downloading);
+
                 Toast.makeText(MainActivity.this, "Error: (MIME Type) " + title, Toast.LENGTH_SHORT).show();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            SYNCFLAG = false;
         } else {
             /* Allow User to pick Location */
 
@@ -468,8 +540,6 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(intent, CREATE_FILE);
         }
     }
-
-
 
     /** Write to location */
     @Override

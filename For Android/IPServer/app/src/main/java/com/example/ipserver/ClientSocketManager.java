@@ -2,16 +2,15 @@ package com.example.ipserver;
 
 import android.content.Context;
 import android.os.Looper;
+import android.os.Message;
 import android.widget.Toast;
 
-import androidx.annotation.UiThread;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.net.Socket;
 
 public class ClientSocketManager {
@@ -65,16 +64,23 @@ public class ClientSocketManager {
     //  Boolean ->
     //  int <-
     //  bytes <-
-    public byte[] readFile() {
+    public byte[] readFile(int index) {
         byte[] rawFile;
         try {
             int dataLength = (int)dataInputStream.readLong();
             rawFile = new byte[dataLength];
 
-            MainActivity.progress(dataLength, 0, "Loading");
+            Message loading = Message.obtain();
+            loading.arg1 = dataLength;
+            loading.arg2 = index;
+            loading.obj = "Loading...";
+            MainActivity.setProgressHandler.sendMessage(loading);
+            while(MainActivity.setProgressHandler.hasMessages(loading.what));
+            //MainActivity.progress(dataLength, 0, "Loading");
             boolean stop = false;
             int pageSize;
             int offset = 0;
+            int percentage = 0;
             do{
                 if (readBoolean()){
                     stop = MainActivity.STOP;
@@ -89,15 +95,34 @@ public class ClientSocketManager {
                     rawFile = null;
                 }
 
-                int percentage = (int)(((double)offset/dataLength)*100);
-                MainActivity.progress(dataLength, offset, "Downloading: " + percentage +"%");
+                percentage = (int)(((double)offset/dataLength)*100);
+                Message downloading = Message.obtain();
+                downloading.arg1 = offset;
+                downloading.arg2 = index;
+                downloading.obj = "Downloading: " + percentage +"%";
+                MainActivity.progressHandler.sendMessage(downloading);
+                while(MainActivity.progressHandler.hasMessages(downloading.what));
+                //MainActivity.progress(dataLength, offset, "Downloading: " + percentage +"%");
             }while(dataLength != offset);
 
+            Message finished = Message.obtain();
+            finished.arg1 = -1;
+            finished.arg2 = index;
+
             if (stop) {
-                MainActivity.progress(dataLength, offset, "Stopped <-/-");
+
+                finished.obj = "Stopped <-/- " + percentage + "%";
+                MainActivity.progressHandler.sendMessage(finished);
+                while(MainActivity.progressHandler.hasMessages(finished.what));
+                //MainActivity.progress(dataLength, offset, "Stopped <-/-");
                 return null;
+
             } else {
-                MainActivity.progress(dataLength, offset, "Downloaded <-");
+
+                finished.obj = "Downloaded <-";
+                MainActivity.progressHandler.sendMessage(finished);
+                while(MainActivity.progressHandler.hasMessages(finished.what));
+                //MainActivity.progress(dataLength, offset, "Downloaded <-");
                 return rawFile;
             }
 
