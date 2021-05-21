@@ -34,9 +34,9 @@ now type "java -jar IPserver.jar"
 
 You should now see this in the console:
 
-Waiting for devices to connect...
-Address -> PC NAME / LOCAL IP ADDRESS
-PORT    -> PORT NUMBER (DEFAULT: 6969)
+Waiting for devices to connect... \n
+Address -> PC NAME / LOCAL IP ADDRESS \n
+PORT    -> PORT NUMBER (DEFAULT: 6969) \n
 
 Congrates... go hack The Pentagon you mad boy
 
