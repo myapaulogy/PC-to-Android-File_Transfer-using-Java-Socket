@@ -8,6 +8,7 @@ public class IPServer {
     static String currentWorkingDir;
     private static int heapSpace = 5; //5mb
     private static boolean loud = false;
+    private static int port = 6969;
     /**
      *
      *
@@ -53,15 +54,19 @@ public class IPServer {
         System.out.println("\n");
         //Set up connection
         if (args.length > 0) {
-            heapSpace = Integer.parseInt(args[0]);
-            if(args.length > 1 && args[1].equals("--loud")) {
+            port = Integer.parseInt(args[0]);
+
+            if(args.length > 1)
+                heapSpace = Integer.parseInt(args[1]);
+
+            if(args.length > 2 && args[2].equals("--loud")) {
                 System.out.println("Printing More to The Console\n\n");
                 loud = true;
             }
 
         }
 
-        ssm = new ServerSocketManager(6969, heapSpace, loud);
+        ssm = new ServerSocketManager(port, heapSpace, loud);
 
         boolean shutdown = false;
         while (!shutdown) {
