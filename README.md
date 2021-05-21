@@ -42,9 +42,9 @@ PORT    -> PORT NUMBER (DEFAULT: 6969) <br />
 Congrates... go hack The Pentagon you mad boy
 
 # Console Arguments 
-arg1 = port number              DEFAULT: 6969     Port range depends on your router <br />
-arg2 = transfer size (in mb)    DEFAULT: 5        If you set this to high you might get a heap space error <br />
-arg3 = print more to console    DEFAULT: false    to set this to true type: "--loud" <br />
+arg1 = port number            &nbsp;  DEFAULT: 6969   &nbsp;   Port range depends on your router <br />
+arg2 = transfer size (in mb)  &nbsp;  DEFAULT: 5      &nbsp;   If you set this to high you might get a heap space error <br />
+arg3 = print more to console  &nbsp;  DEFAULT: false  &nbsp;   to set this to true type: "--loud" <br />
 
 example: "java -jar IPserver.jar 420 2 --loud"
 
