@@ -7,7 +7,7 @@ Within the folder is the APK... Install it (on your android phone).
 You might get a warning saying google doesn't know this publisher and its not on the google play store because you need to pay $25 for a dev account
 
 ## For PC
-within this folder is the JAR file... download it and run it. (double click the jar)
+within this folder is the JAR file... download it and run it. (double click the jar) <br />
 and accept the java stuff and the connection stuff (public network is just fine)
 
 # Need More Help On Installation/Running
