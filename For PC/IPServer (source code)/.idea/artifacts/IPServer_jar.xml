@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="IPServer:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/IPServer_jar</output-path>
+    <root id="archive" name="IPServer.jar">
+      <element id="module-output" name="IPServer" />
+      <element id="file-copy" path="$PROJECT_DIR$/src/com/company/ServerSocketManager.java" />
+    </root>
+  </artifact>
+</component>

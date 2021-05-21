@@ -1,0 +1,21 @@
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    tools:context=".MainActivity">
+
+    <item android:id="@+id/toFirst"
+        android:title="@string/to_first"
+        app:showAsAction="never" />
+
+    <item android:id="@+id/sync"
+        android:title="@string/sync_music_files"
+        app:showAsAction="never" />
+
+    <item
+        android:title=""
+        app:showAsAction="never" />
+
+    <item android:id="@+id/shutdown"
+        android:title="@string/shutdown"
+        app:showAsAction="never" />
+</menu>

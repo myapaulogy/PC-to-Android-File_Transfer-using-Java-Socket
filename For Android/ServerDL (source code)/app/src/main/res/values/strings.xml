@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">ServerDL</string>
+    <string name="ip_address">IP address</string>
+    <string name="port">Port</string>
+    <string name="connect">connect</string>
+    <string name="toFirst">^</string>
+    <string name="sync">Sync</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="stop">stop</string>
+    <string name="status">Status</string>
+    <string name="file">file name</string>
+    <string name="queue">Queue</string>
+    <string name="to_first">To First</string>
+    <string name="sync_music_files">Sync Music Files</string>
+    <string name="shutdown">Shutdown</string>
+</resources>
