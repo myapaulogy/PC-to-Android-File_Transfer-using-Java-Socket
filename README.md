@@ -8,6 +8,7 @@ You might get a warning saying google doesn't know this publisher and its not on
 
 ## For PC
 within this folder is the JAR file... download it and run it. (double click the jar)
+and accept the java stuff and the connection stuff (public network is just fine)
 
 # Need More Help On Installation/Running
 ## Android 
