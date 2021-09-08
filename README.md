@@ -14,7 +14,7 @@ and accept the java stuff and the connection stuff (public network is just fine)
 # Need More Help On Installation/Running
 ## Android 
 I created the apk with android 11 (v30 & min version (28)) 
-You might need to update you OS
+You might need to update your OS
 
 ## PC
 I created the jar file with java 8 (To run jar files make sure you installed Java first)
