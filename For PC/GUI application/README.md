@@ -1,0 +1,1 @@
+# Graphical User Interface application for server side
