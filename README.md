@@ -3,7 +3,7 @@ This is an android application that allows the user to download files from a com
 
 # Quick Start Guide
 ## For Android
-Download the Apk located here -> [Android APK](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20Android) 
+Download the Apk located here -> [Android APK](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20Android) <br />
 The source code is located at the same location as the APK.<br />
 The code was developed using [Android Studio](https://developer.android.com/studio)
 
