@@ -53,3 +53,7 @@ When downloading a big file the PC will send the file into chuncks (arg2 = trans
 2 "Sync Music Files" -> App will access Local Music Folder (on Android) and compare the CWD and download all music file from the PC<br />
 
 3 "Shutdown" -> It will shutdown the PC Server program<br />
+
+## PC side (GUI)
+
+###Work in Progress
