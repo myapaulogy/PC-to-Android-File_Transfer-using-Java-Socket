@@ -1,48 +1,20 @@
 # PC-to-Android-File_Transfer-using-Java-Socket
-This is an android application that allows the user to download files from a computer on the same local network <br />
-I used java because Windows/Linux any computer that can run java can run this application
+This is an android application that allows the user to download files from a computer on the **local network** <br />
 
 # Quick Start Guide
 ## For Android
-Within the folder is the APK... Install it (on your android phone). 
-You might get a warning saying google doesn't know this publisher and its not on the google play store because you need to pay $25 for a dev account
+Download the Apk located here -> [Android APK](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20Android) <br />
+The source code is located at the same location as the APK.<br />
+The code was developed using [Android Studio](https://developer.android.com/studio)
 
 ## For PC
-within this folder is the JAR file... download it and run it. (double click the jar) <br />
-and accept the java stuff and the connection stuff (public network is just fine)
+### Command Line interface
+Download the jar located here -> [CLI](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20PC/Command%20Line%20application)
 
-# Need More Help On Installation/Running
-## Android 
-I created the apk with android 11 (v30 & min version (28)) 
-You might need to update your OS
+### Graphical User interface
+Download the jar located here -> [GUI](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20PC/GUI%20application)
 
-## PC
-I created the jar file with java 8 (To run jar files make sure you installed Java first)
-When double Clicking you do not see the console show you IP or PORT or see any information (Completely Silent).
-reminder for console "java -jar IPserver.jar"
-
-### For Dummys console
-press windows Key and type "command prompt"
-*click the application*
-go to where you saved the jar file (file explorer) and copy its location
-should look somthing like this *C:\Users\broth\Downloads* Dont include the jar file
-
-Go to the command prompt app and type "cd C:\Users\broth\Downloads" and press enter
-
-##### if you type "dir" you should see IPserver.jar listed
-(if its downloaded in a different drive type the drive into the command prompt "D:")
-
-now type "java -jar IPserver.jar"
-
-You should now see this in the console:
-
-Waiting for devices to connect... <br />
-Address -> PC NAME / LOCAL IP ADDRESS <br />
-PORT    -> PORT NUMBER (DEFAULT: 6969) <br />
-
-Congrates... go hack The Pentagon you mad boy
-
-# Console Arguments 
+# Console Arguments for CLI 
 arguments | Default Values | Details
 ------------ | ------------- | -------------
 arg1 = port number            |  DEFAULT: 6969   |  Port range depends on your router <br />
@@ -51,4 +23,37 @@ arg3 = print more to console  |  DEFAULT: false  |  to set this to true type: "-
 
 example: "java -jar IPserver.jar 420 2 --loud"
 
-I forgot about a help argument and I dont feel like adding it right now
+# ShowCase
+## PC side (CLI)
+![pc command line](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/pc_side_cli.png)
+
+This is the expected output when running the commandline client<br />
+
+If you run the -loud command it will display more to the console<br />
+![pc loud command](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/pc_side_cli_android_downloading.png)
+
+## Android side
+![When Connected](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/Android_First_State.png)
+
+![Moved dir](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/Android_Moving_Dir.png)
+
+When connected to the right IP and Port Address the pc will send the current working directory to the user.<br />
+From here the user can move in and out of folders and download files.<br />
+**Unfortunately it is set up to only download "mime type" files**<br />
+
+![Download Progress](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/blob/main/assets/Android_Downloading_Progress.png)
+
+When downloading a big file the PC will send the file into chuncks (arg2 = transfer size)<br />
+**developed this method for low memory computers (raspberryPi...)**<br />
+
+![Hamburger](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/Android_Hamburger_Menu.png)
+
+1 "To First" -> Will move list to top of displayed files/folders "file: .."<br />
+
+2 "Sync Music Files" -> App will access Local Music Folder (on Android) and compare the CWD and download all music file from the PC<br />
+
+3 "Shutdown" -> It will shutdown the PC Server program<br />
+
+## PC side (GUI)
+
+###Work in Progress
