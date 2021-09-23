@@ -48,7 +48,7 @@ public class IPServer {
     // LOOP: Boolean <-
     //      String <-
     //      Int <-
-    public static void main(String[] args) {
+    public static void StartService(String[] args) {
         System.out.println("\n");
         //Set up connection
         if (args.length > 0) {
