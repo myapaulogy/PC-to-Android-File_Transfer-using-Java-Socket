@@ -1,4 +1,6 @@
 import javax.swing.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -19,9 +21,13 @@ public class PcGui extends IPServer{
                 while(Addresses.hasMoreElements())
                 {
                     InetAddress Address = Addresses.nextElement();
-                    System.out.println(Address.getHostAddress());
 
-                    ip.add(Address.getHostAddress());
+                    //Get only xxx.xxx.xxx.xxx Local Address
+                    if(!Address.toString().contains(":")) {
+                        System.out.println(Address.getHostAddress());
+                        ip.add(Address.getHostAddress());
+                    }
+
                 }
             }
 
@@ -35,13 +41,46 @@ public class PcGui extends IPServer{
         JPanel panel = new JPanel();
         panel.setLayout(null);
 
-        JLabel ipAddress = new JLabel("Possible IP Address:");
-        ipAddress.setBounds(50,20,250,25);
-        panel.add(ipAddress);
+        //Display Local IP Address
+        JLabel ipDescription = new JLabel("Local IP Addresses:");
+        ipDescription.setBounds(50,20,250,25);
+        panel.add(ipDescription);
 
-        JScrollPane scrollPane = new JScrollPane(ipList);
-        scrollPane.setBounds(200,23,300,20);
-        panel.add(scrollPane);
+        JScrollPane ipScrollPane = new JScrollPane(ipList);
+        ipScrollPane.setBounds(200,20,150,40);
+        panel.add(ipScrollPane);
+
+        //Display Local Port Address
+        JLabel portDescription = new JLabel("Port Address:");
+        portDescription.setBounds(50,65,250,25);
+        panel.add(portDescription);
+
+        JTextField portTextField = new JTextField();
+        portTextField.setText("6969");
+
+        portTextField.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent ke) {
+                String value = portTextField.getText();
+
+                //Port should not start with 0
+                if(value.length() <= 1 && value.startsWith("0")) {
+                    portTextField.setText(null);
+                    return;
+                }
+
+                // Filter only number and KeyCode 8 is the delete key
+                portTextField.setEditable
+                        (value.length() < 4 && (ke.getKeyChar() >= '0' && ke.getKeyChar() <= '9')
+                                || ke.getKeyCode() == 8);
+            }
+        });
+
+        portTextField.setBounds(200,65,70,25);
+        panel.add(portTextField);
+
+        JScrollPane activityScrollPane = new JScrollPane();
+        activityScrollPane.setBounds(50,100,300,40);
+        panel.add(activityScrollPane);
 
         JFrame frame = new JFrame();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
