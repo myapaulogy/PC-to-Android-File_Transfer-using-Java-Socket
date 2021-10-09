@@ -2,8 +2,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.sql.SQLOutput;
+import java.net.SocketException;
 
 public class ServerSocketManager {
     ServerSocket serverSocket;
@@ -60,7 +59,7 @@ public class ServerSocketManager {
         } catch (IOException e){ e.printStackTrace(); }
     }
 
-    public void openConnection() {
+    public boolean openConnection() {
         System.out.println("Waiting for devices to connect...");
         try {
             System.out.println("Address -> " + InetAddress.getLocalHost());
@@ -68,10 +67,12 @@ public class ServerSocketManager {
             socket = serverSocket.accept();
             dataOutputStream = new DataOutputStream(socket.getOutputStream());
             dataInputStream = new DataInputStream(socket.getInputStream());
+
         } catch (IOException e){
             e.printStackTrace();
         }
         System.out.println("Conncted To --->  " + socket.getLocalSocketAddress());
+        return true;
     }
 
     // long ->
@@ -210,5 +211,5 @@ public class ServerSocketManager {
     }
 
     // Close Connection
-    public void close() { try { serverSocket.close(); dataOutputStream.close(); } catch (IOException e ){ e.printStackTrace(); } }
+    public void close() { try { serverSocket.close(); } catch (IOException e ){ e.printStackTrace(); } }
 }

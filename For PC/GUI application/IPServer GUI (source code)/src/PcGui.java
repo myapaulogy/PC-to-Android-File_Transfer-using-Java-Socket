@@ -1,13 +1,14 @@
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.*;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.Objects;
 
 public class PcGui extends IPServer{
+    private static IPServer server;
+
     public static void main(String[] args) {
 
         JPanel panel = new JPanel();
@@ -97,28 +98,49 @@ public class PcGui extends IPServer{
         activityScrollPane.setBounds(50,140,300,250);
         panel.add(activityScrollPane);
 
+        /** LOUD CheckBox Option */
+        Checkbox loudOption = new Checkbox("Verbose");
+        loudOption.setBounds(260, 400, 70, 30);
+        panel.add(loudOption);
+
+        /** Start Server */
         JButton start = new JButton("Start");
         start.setBounds(50, 400, 70, 30);
         panel.add(start);
         start.addActionListener(v -> {
+            if(start.getText().equals("Start")) {
+                int port = 420;
+                int transferSize = 20;
+                if (!(portTextField.getText().isEmpty())) {
+                    port = Integer.parseInt(portTextField.getText());
+                } else {
+                    activity.append("Empty Port: Default - 420 \n");
+                }
 
-            int port = 420;
-            int transferSize = 20;
-            if(!(portTextField.getText().isEmpty())){
-                port = Integer.parseInt(portTextField.getText());
+                if (!(transferTextField.getText().isEmpty())) {
+                    transferSize = Integer.parseInt(transferTextField.getText());
+                } else {
+                    activity.append("Empty transfer: Default - 20\n");
+                }
+
+                activity.append("----------Connection Starting Up---------");
+
+                activity.append("\nStarting Up\n");
+                activity.append("On Port: " + port + "\n");
+                activity.append("Transfer Size: " + transferSize + "\n");
+                activity.append("Verbose Option: " + loudOption.getState() + "\n\n\n");
+
+
+                server = new IPServer(port, transferSize, loudOption.getState());
+                server.start();
+
+                start.setText("Stop");
             } else {
-                activity.append("Empty Port: Default - 420 \n");
-            }
 
-            if(!(transferTextField.getText().isEmpty())) {
-                transferSize = Integer.parseInt(transferTextField.getText());
-            } else {
-                activity.append("Empty transfer: Default - 20\n");
+                server.interrupt();
+                activity.append("------------Connection Closed-----------" + "\n\n\n");
+                start.setText("Start");
             }
-
-            activity.append("\nStarting Up\n");
-            activity.append("On Port: " + port + "\n");
-            activity.append("Transfer Size: " + transferSize + "\n\n\n");
          });
 
         JFrame frame = new JFrame();
@@ -130,11 +152,4 @@ public class PcGui extends IPServer{
         frame.setResizable(false);
 
     }
-
-    /*
-    String[] list = new String[2];
-    list[0] = "420";
-    list[1] = "3";
-    StartService(list);
-     */
 }

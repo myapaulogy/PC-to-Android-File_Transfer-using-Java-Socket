@@ -1,12 +1,22 @@
 import java.io.File;
+import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class IPServer {
+public class IPServer extends Thread{
     public static ServerSocketManager ssm;
     static String currentWorkingDir;
-    private static int heapSpace = 5; //5mb
-    private static boolean loud = false;
-    private static int port = 6969;
+    private int heapSpace = 5; //5mb
+    private boolean loud = false;
+    private int port = 6969;
+
+    IPServer(){}
+
+    IPServer(int port, int heapSpace, boolean loud){
+        this.port = port;
+        this.heapSpace = heapSpace;
+        this.loud = loud;
+    }
     /**
      *
      *
@@ -48,21 +58,8 @@ public class IPServer {
     // LOOP: Boolean <-
     //      String <-
     //      Int <-
-    public static void StartService(String[] args) {
+    public void run() {
         System.out.println("\n");
-        //Set up connection
-        if (args.length > 0) {
-            port = Integer.parseInt(args[0]);
-
-            if(args.length > 1)
-                heapSpace = Integer.parseInt(args[1]);
-
-            if(args.length > 2 && args[2].equals("--loud")) {
-                System.out.println("Printing More to The Console\n\n");
-                loud = true;
-            }
-
-        }
 
         ssm = new ServerSocketManager(port, heapSpace, loud);
 
@@ -70,8 +67,19 @@ public class IPServer {
         while (!shutdown) {
             currentWorkingDir = System.getProperty("user.dir");
 
-            //wait for connection
-            ssm.openConnection();
+
+            //Thread a connection
+            AtomicBoolean connected = new AtomicBoolean(false);
+            Thread connection = new Thread(() -> connected.set(ssm.openConnection()));
+            connection.start();
+
+            //Wait for connection and check for termination
+            while (!connected.get()) {
+                if (Thread.currentThread().isInterrupted()) {
+                    ssm.close();
+                    return;
+                }
+            }
 
             toSystemConsole("Accepting HandShake (Boolean, String, Int)");
             while(true) {
@@ -118,7 +126,7 @@ public class IPServer {
     }
 
     public static void toSystemConsole(String str){
-        if(loud)
+        //if(loud)
             System.out.println(str);
     }
 
