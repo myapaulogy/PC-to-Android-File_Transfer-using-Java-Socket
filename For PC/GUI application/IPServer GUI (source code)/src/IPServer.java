@@ -1,5 +1,4 @@
 import java.io.File;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -7,7 +6,7 @@ public class IPServer extends Thread{
     public static ServerSocketManager ssm;
     static String currentWorkingDir;
     private int heapSpace = 5; //5mb
-    private boolean loud = false;
+    private static boolean loud = false;
     private int port = 6969;
 
     IPServer(){}
@@ -15,51 +14,11 @@ public class IPServer extends Thread{
     IPServer(int port, int heapSpace, boolean loud){
         this.port = port;
         this.heapSpace = heapSpace;
-        this.loud = loud;
+        IPServer.loud = loud;
     }
-    /**
-     *
-     *
-     * Communication Structure:
-     *
-     * Wait for Connection:
-     *  Loop:
-     *      Wait for Boolean:
-     *      True Continue <--> False Close connection
-     *          Get user input (Directory or File)
-     *          Get user input (index)
-     *              Send Dir or Fil
-     *
-     * How Send File:
-     *  Send File Size
-     *  Loop:
-     *      Send boolean TRUE
-     *      Get boolean
-     *      True Continue <--> False Stop
-     *      Send sending size
-     *      Send byte data
-     *  Send boolean False
-     *
-     * How Send Directory:
-     *  Send How many objects are in Dir
-     *  Loop:
-     *      Send boolean TRUE
-     *      Get boolean
-     *      True Continue <--> False Stop
-     *      Send size
-     *      Send File or Send Directory
-     *      Send String
-     *  Send boolean False
-     *
-     *
-     * */
 
-    // Open connection
-    // LOOP: Boolean <-
-    //      String <-
-    //      Int <-
     public void run() {
-        System.out.println("\n");
+        toActivity("");
 
         ssm = new ServerSocketManager(port, heapSpace, loud);
 
@@ -68,7 +27,7 @@ public class IPServer extends Thread{
             currentWorkingDir = System.getProperty("user.dir");
 
 
-            //Thread a connection
+            //Thread a connection call
             AtomicBoolean connected = new AtomicBoolean(false);
             Thread connection = new Thread(() -> connected.set(ssm.openConnection()));
             connection.start();
@@ -76,18 +35,39 @@ public class IPServer extends Thread{
             //Wait for connection and check for termination
             while (!connected.get()) {
                 if (Thread.currentThread().isInterrupted()) {
+                    connection.interrupt();
                     ssm.close();
                     return;
                 }
             }
 
-            toSystemConsole("Accepting HandShake (Boolean, String, Int)");
+            verboseCommand("Accepting HandShake (Boolean, String, Int)");
             while(true) {
-                if(ssm.readBoolean()) {
+
+                //Thread boolean reply
+                AtomicBoolean clientReply = new AtomicBoolean(false);
+                AtomicBoolean clientBooleanPass = new AtomicBoolean(false);
+                Thread booleanResponse = new Thread(() -> {
+                    clientReply.set(ssm.readBoolean());
+                    clientBooleanPass.set(true);
+                });
+                booleanResponse.start();
+
+                //Wait for client reply and check for server termination
+                while(!clientBooleanPass.get()) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        booleanResponse.interrupt();
+                        ssm.close();
+                        return;
+                    }
+                }
+
+                if(clientReply.get()) {
                     String clientInput = ssm.readString();
                     int index = ssm.readInt();
-                    toSystemConsole("User asks for: " + clientInput);
-                    toSystemConsole("At index: " + index);
+
+                    verboseCommand("User asks for: " + clientInput);
+                    verboseCommand("At index: " + index);
                     switch (clientInput) {
                         case "Directory":
                             if (index != -1) {
@@ -100,45 +80,48 @@ public class IPServer extends Thread{
                             if (index < files.size()) {
                                 SendFile(currentWorkingDir + "/" + files.get(index).filename);
                             } else {
-                                toSystemConsole("User Requested");
+                                verboseCommand("User Requested");
                             }
                             break;
 
                         case "ShutDown":
-                            System.out.println("Client Requested to ShutDown Server");
+                            toActivity("Client Requested to ShutDown Server");
                             shutdown = true;
                             break;
 
                         default:
-                            System.out.println("Unknown request -> " + clientInput + " <- ");
-                            System.out.println("Closing Connection");
+                            toActivity("Unknown request -> " + clientInput + " <- ");
+                            toActivity("Closing Connection");
                             break;
                     }
                 } else {
-                    System.out.println("\nConnection Closed -/-");
+                    toActivity("\nConnection Closed -/-\n");
                     break;
                 }
+
+                toActivity("");
             }
 
         }
         ssm.close();
-        System.out.println("Server Shutdown");
+        toActivity("Server Shutdown");
     }
 
-    public static void toSystemConsole(String str){
-        //if(loud)
-            System.out.println(str);
+    public static void verboseCommand(String str){
+        if(loud)
+            toActivity(str);
+    }
+
+    public static void toActivity(String str){
+        PcGui.activity.append(str + "\n");
+        PcGui.activity.setCaretPosition(PcGui.activity.getText().length());
     }
 
     public static boolean isRoot(String path){ return new File(path).toPath().getNameCount() == 0; }
 
-    // int ->
-    // LOOP:
-    //      String ->
-    //      String ->
     private static ArrayList<FileData> files;
     public static void SendDirectory(String path){
-        toSystemConsole("Current Working Directory --> " + path);
+        verboseCommand("Current Working Directory --> " + path);
         files = new ArrayList<>();
         files.add(new FileData( "..", false));
 
@@ -157,13 +140,13 @@ public class IPServer extends Thread{
             }
 
             ssm.send(files.size());
-            for (int i = 0; i < files.size(); i++) {
-                ssm.send(files.get(i).isFile());
-                ssm.send(files.get(i).getFilename());
+            for (FileData file : files) {
+                ssm.send(file.isFile());
+                ssm.send(file.getFilename());
             }
 
         } else {
-            toSystemConsole("NOT SENDING AS DIR " + path);
+            verboseCommand("NOT SENDING AS DIR " + path);
         }
     }
 

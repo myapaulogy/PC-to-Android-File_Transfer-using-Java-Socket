@@ -1,51 +1,12 @@
 import java.io.*;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 
 public class ServerSocketManager {
     ServerSocket serverSocket;
     DataInputStream dataInputStream;
     DataOutputStream dataOutputStream;
     Socket socket;
-
-    /**
-     *
-     *
-     * Communication Structure:
-     *
-     * Wait for Connection:
-     *  Loop:
-     *      Wait for Boolean:
-     *      True Continue <--> False Close connection
-     *          Get user input (Directory or File)
-     *          Get user input (index)
-     *              Send Dir or Fil
-     *
-     * How Send File:
-     *  Send File Size
-     *  Loop:
-     *      Send boolean TRUE
-     *      Get boolean
-     *      True Continue <--> False Stop
-     *      Send sending size
-     *      Send byte data
-     *  Send boolean False
-     *
-     * How Send Directory:
-     *  Send How many objects are in Dir
-     *  Loop:
-     *      Send boolean TRUE
-     *      Get boolean
-     *      True Continue <--> False Stop
-     *      Send size
-     *      Send File or Send Directory
-     *      Send String
-     *  Send boolean False
-     *
-     *
-     * */
 
     int maxMemorySize;
     int port;
@@ -60,18 +21,15 @@ public class ServerSocketManager {
     }
 
     public boolean openConnection() {
-        System.out.println("Waiting for devices to connect...");
         try {
-            System.out.println("Address -> " + InetAddress.getLocalHost());
-            System.out.println("PORT    -> " + serverSocket.getLocalPort() +"\n");
             socket = serverSocket.accept();
             dataOutputStream = new DataOutputStream(socket.getOutputStream());
             dataInputStream = new DataInputStream(socket.getInputStream());
-
+            toActivity("Conncted To --->  " + socket.getRemoteSocketAddress());
         } catch (IOException e){
+            System.out.println("\n IF \"Socket Close\" Error: It is expected when forcing accept call to terminate\n");
             e.printStackTrace();
         }
-        System.out.println("Conncted To --->  " + socket.getLocalSocketAddress());
         return true;
     }
 
@@ -86,7 +44,7 @@ public class ServerSocketManager {
 
         long dataSize = b.length();
         if (serverSocket.isClosed()){
-            toSystemConsole("Connection Closed");
+            verboseCommand("Connection Closed");
         } else {
             int sendBytes = -1;
             byte[] byteData;
@@ -97,7 +55,7 @@ public class ServerSocketManager {
                 while(sendBytes != dataSize) {
                     send(true);
                     if(!readBoolean()) {
-                        toSystemConsole("Client Asked to Stop transfer -/->");
+                        verboseCommand("Client Asked to Stop transfer -/->");
                         success = false;
                         break;
                     }
@@ -106,8 +64,8 @@ public class ServerSocketManager {
                     if (dataSize >= maxMemorySize) {
                         sendBytes = maxMemorySize;
                         dataSize -= maxMemorySize;
-                        toSystemConsole("-> File exceeds allowed size <-");
-                        toSystemConsole("-> Sending in intervals of " + maxMemorySize);
+                        verboseCommand("-> File exceeds allowed size <-");
+                        verboseCommand("-> Sending in intervals of " + maxMemorySize);
                     } else {
                         sendBytes = (int)dataSize; //last part of the pie
                     }
@@ -115,7 +73,7 @@ public class ServerSocketManager {
                     send(sendBytes);
 
                     byteData = new byte[sendBytes];
-                    toSystemConsole("Sending File To --> client");
+                    verboseCommand("Sending File To --> client");
                     fileInputStream.read(byteData);
                     dataOutputStream.write(byteData);
                     dataOutputStream.flush();
@@ -199,17 +157,29 @@ public class ServerSocketManager {
         try {
             b = dataInputStream.readBoolean();
         } catch (IOException e){
-            toSystemConsole("ERROR: Connection Interrupted");
+            verboseCommand("ERROR: Connection Interrupted");
             e.printStackTrace();
         }
         return b;
     }
 
-    public void toSystemConsole(String str){
+    public void verboseCommand(String str){
         if(loud)
-            System.out.println(str);
+            toActivity(str);
+    }
+
+    public static void toActivity(String str){
+        PcGui.activity.append(str + "\n");
+        PcGui.activity.setCaretPosition(PcGui.activity.getText().length());
     }
 
     // Close Connection
-    public void close() { try { serverSocket.close(); } catch (IOException e ){ e.printStackTrace(); } }
+    public void close() {
+        try {
+            if(serverSocket != null) serverSocket.close();
+            if(socket != null) socket.close();
+            if(dataOutputStream != null) dataOutputStream.close();
+            if(dataInputStream != null) dataInputStream.close();
+
+        } catch (IOException e ){ e.printStackTrace(); } }
 }
