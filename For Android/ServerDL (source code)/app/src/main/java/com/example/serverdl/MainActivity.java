@@ -1,14 +1,6 @@
 package com.example.serverdl;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.Manifest;
-import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -26,6 +18,15 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.DataInputStream;
 import java.io.DataOutput;
@@ -56,6 +57,19 @@ public class MainActivity extends AppCompatActivity {
 
     SharedPreferences sharedPref;
 
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+               if(isGranted){
+                   //Permissions Granted
+                   //Toast.makeText(this, "User gave permissions", Toast.LENGTH_SHORT).show();
+               } else {
+                   //Permission Denied... Exit application
+                   Toast.makeText(this, "I need permissions", Toast.LENGTH_SHORT).show();
+                   MainActivity.this.finish();
+                   System.exit(0);
+               }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -64,11 +78,9 @@ public class MainActivity extends AppCompatActivity {
         /* GET USER PERMISSION */
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
-                            Manifest.permission.INTERNET
-                    },
-                    USER_PERMISSIONS);
+
+            requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE);
+            requestPermissionLauncher.launch(Manifest.permission.INTERNET);
         }
         /* GET USER PERMISSION */
 
@@ -121,6 +133,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         /* Buttons */
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        executorService.shutdownNow();
     }
 
     public boolean STOP = false;
@@ -267,14 +285,23 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> connectionButton.setText("stop"));
 
             try {
+                userUriLocation = emptyLocation;
+
                 SendToSharedStorage(index);
+                while (userUriLocation.equals(emptyLocation));
+
+                //User Did not give a location to download the file to
+                if (userUriLocation.equals(noLocation)){
+                    System.out.println("No           location                given");
+                    userUriLocation = null;
+                    runOnUiThread(() -> connectionButton.setText("disconnect"));
+                    return;
+                }
 
                 // ASK FOR FILE
                 to_Server.writeBoolean(true);
                 to_Server.writeUTF("File");
                 to_Server.writeInt(index);
-
-                while (userUriLocation == null);
 
                 try {
                     OutputStream outputStream = getContentResolver().openOutputStream(userUriLocation);
@@ -320,7 +347,8 @@ public class MainActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                userUriLocation = null;
+
+                userUriLocation = emptyLocation;
 
                 if(STOP) {
                     serverFiles.get(index).setEnableProgress(false);
@@ -355,7 +383,6 @@ public class MainActivity extends AppCompatActivity {
 
                 userUriLocation = resolver.insert(audioCollection, newSongDetails);
             } else {
-
                 // when you create document, you need to add Intent.ACTION_CREATE_DOCUMENT
                 Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
 
@@ -365,11 +392,26 @@ public class MainActivity extends AppCompatActivity {
                 intent.setType(serverFiles.get(index).getMimeTypeMap());
                 intent.putExtra(Intent.EXTRA_TITLE, title);
 
-                startActivityForResult(intent, CREATE_FILE);
+                //startActivityForResult(intent, CREATE_FILE);
+                mGetContent.launch(intent);
             }
         }
     }
     //End of NETWORK THREAD//
+
+    Uri noLocation = Uri.parse("NoLocation");
+    Uri emptyLocation = Uri.parse("EmptyLocation");
+    ActivityResultLauncher<Intent> mGetContent = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    if (result.getData() != null) {
+                        userUriLocation = result.getData().getData();
+                    } else {
+                        userUriLocation = noLocation;
+                    }
+                }
+            });
 
     /* Action bar Queue */
     @Override
@@ -472,32 +514,5 @@ public class MainActivity extends AppCompatActivity {
         return(super.onOptionsItemSelected(item));
     }
 
-    /* Write to location */
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == CREATE_FILE && resultCode == Activity.RESULT_OK) {
-            if ( data != null ) {
-                userUriLocation = data.getData();
-            }
-        }
-    }
-
-    /* GET USER PERMISSION */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == USER_PERMISSIONS) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "User gave permissions", Toast.LENGTH_SHORT).show();
-            } else {
-                //Permission Denied... Exit application
-                Toast.makeText(MainActivity.this, "Permission Denied Exiting...", Toast.LENGTH_SHORT).show();
-                MainActivity.this.finish();
-                System.exit(0);
-            }
-        } else {
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
-    }
 }
 
