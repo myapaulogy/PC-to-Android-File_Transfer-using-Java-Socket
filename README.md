@@ -14,7 +14,7 @@ Download the jar located here -> [CLI](https://github.com/PaulAntonescu/PC-to-An
 ### Graphical User interface
 Download the jar located here -> [GUI](https://github.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/tree/main/For%20PC/GUI%20application)
 
-# Console Arguments for CLI 
+# Console Arguments for CLI
 arguments | Default Values | Details
 ------------ | ------------- | -------------
 arg1 = port number            |  DEFAULT: 6969   |  Port range depends on your router <br />
@@ -27,10 +27,21 @@ example: "java -jar IPserver.jar 420 2 --loud"
 ## PC side (CLI)
 ![pc command line](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/pc_side_cli.png)
 
-This is the expected output when running the commandline client<br />
+This is the expected output when running the command line client<br />
 
 If you run the -loud command it will display more to the console<br />
 ![pc loud command](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/pc_side_cli_android_downloading.png)
+
+## PC side (GUI)
+The Graphical Interface will show Local Addresses
+
+And you can type your preferred Port Address and the max transfer size.
+![GUI interface](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/GUI_starting.png)
+
+The Verbose command is similar to the loud flag for the CLI version.
+
+When starting or when a user is connected the GUI will update and show information about the transactions happening
+![User Connected](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/User_Connected.png)
 
 ## Android side
 ![When Connected](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/Android_First_State.png)
@@ -53,7 +64,3 @@ When downloading a big file the PC will send the file into chuncks (arg2 = trans
 2 "Sync Music Files" -> App will access Local Music Folder (on Android) and compare the CWD and download all music file from the PC<br />
 
 3 "Shutdown" -> It will shutdown the PC Server program<br />
-
-## PC side (GUI)
-
-###Work in Progress
