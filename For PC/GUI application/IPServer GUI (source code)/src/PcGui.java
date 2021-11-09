@@ -9,6 +9,8 @@ import java.util.Enumeration;
 public class PcGui extends IPServer {
     private static IPServer server;
     public static JTextArea activity;
+    public static JTextField portTextField;
+    public static JTextField transferTextField;
 
     public static void main(String[] args) {
 
@@ -54,7 +56,7 @@ public class PcGui extends IPServer {
         portDescription.setBounds(50,65,250,25);
         panel.add(portDescription);
 
-        JTextField portTextField = new JTextField();
+        portTextField = new JTextField();
         portTextField.setText("6969");
 
         portTextField.addKeyListener(new KeyAdapter() {
@@ -83,7 +85,7 @@ public class PcGui extends IPServer {
         transferDescription.setBounds(50,100,250,25);
         panel.add(transferDescription);
 
-        JTextField transferTextField = new JTextField();
+        transferTextField = new JTextField();
         transferTextField.setText("20");
 
         transferTextField.addKeyListener(new KeyAdapter() {
