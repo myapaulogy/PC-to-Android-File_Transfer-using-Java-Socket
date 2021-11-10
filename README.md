@@ -35,12 +35,12 @@ If you run the -loud command it will display more to the console<br />
 ## PC side (GUI)
 The Graphical Interface will show Local Addresses
 
-And you can type your preferred Port Address and the max transfer size.
+And you can type your preferred Port Address and the max transfer size.<br />
 ![GUI interface](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/GUI_starting.png)
 
 The Verbose command is similar to the loud flag for the CLI version.
 
-When starting or when a user is connected the GUI will update and show information about the transactions happening
+When starting or when a user is connected the GUI will update and show information about the transactions happening<br />
 ![User Connected](https://raw.githubusercontent.com/PaulAntonescu/PC-to-Android-File_Transfer-using-Java-Socket/main/assets/User_Connected.png)
 
 ## Android side
