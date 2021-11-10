@@ -1,3 +1,2 @@
 # Graphical User Interface application for server side
-
-Work in progress
+## Download the Jar file
